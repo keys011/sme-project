@@ -65,6 +65,8 @@ function sanitize($data) {
     $data = htmlspecialchars($data);
     return $conn->real_escape_string($data);
 }
+
+// Check if tables exist
 $result = $conn->query("SHOW TABLES LIKE 'users'");
 if ($result->num_rows == 0) {
     die("
@@ -75,6 +77,18 @@ if ($result->num_rows == 0) {
         </div>
     ");
 }
+
+// Check if products table has image column, if not add it
+$check_column = $conn->query("SHOW COLUMNS FROM products LIKE 'image'");
+if ($check_column->num_rows == 0) {
+    $conn->query("ALTER TABLE products ADD COLUMN image VARCHAR(255) DEFAULT NULL");
+}
+
+// Create uploads directory if it doesn't exist
+if (!is_dir('uploads')) {
+    mkdir('uploads', 0777, true);
+}
+
 $login_error = "";
 $register_error = "";
 $register_success = "";
@@ -94,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
     
-    // Handle registration - FIXED VERSION
+    // Handle registration
     if (isset($_POST['register'])) {
         $username = sanitize($_POST['username']);
         $password = $_POST['password'];
@@ -109,9 +123,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } else {
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             
-            // Try to insert with phone (if column exists)
             $sql = "INSERT INTO users (username, password, full_name, email, role) 
-                    VALUES ('$username', '$h4password', '$full_name', '$email', 'customer')";
+                    VALUES ('$username', '$hashed_password', '$full_name', '$email', 'customer')";
             
             if ($conn->query($sql)) {
                 $register_success = "Registration successful! You can now login.";
@@ -121,14 +134,42 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
     
-    // Handle product addition (admin only)
+    // Handle product addition (admin only) - WITH IMAGE UPLOAD
     if (isset($_POST['add_product']) && isAdmin()) {
         $name = sanitize($_POST['name']);
         $price = floatval($_POST['price']);
         $quantity = intval($_POST['quantity']);
         
-        $sql = "INSERT INTO products (name, price, quantity) 
-                VALUES ('$name', $price, $quantity)";
+        $image_path = null;
+        
+        // Handle image upload
+        if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] == UPLOAD_ERR_OK) {
+            $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+            $file_name = $_FILES['product_image']['name'];
+            $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+            $file_size = $_FILES['product_image']['size'];
+            
+            // Validate file
+            if (in_array($file_ext, $allowed_extensions)) {
+                if ($file_size <= 2097152) { // 2MB max
+                    // Generate unique filename
+                    $new_filename = uniqid() . '_' . time() . '.' . $file_ext;
+                    $upload_path = 'uploads/' . $new_filename;
+                    
+                    if (move_uploaded_file($_FILES['product_image']['tmp_name'], $upload_path)) {
+                        $image_path = $upload_path;
+                    }
+                }
+            }
+        }
+        
+        if ($image_path) {
+            $sql = "INSERT INTO products (name, price, quantity, image) 
+                    VALUES ('$name', $price, $quantity, '$image_path')";
+        } else {
+            $sql = "INSERT INTO products (name, price, quantity) 
+                    VALUES ('$name', $price, $quantity)";
+        }
         
         if ($conn->query($sql)) {
             $product_success = "Product added successfully!";
@@ -296,7 +337,8 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
         .form-group {
             margin-bottom: 20px;
         }
-        
+
+       
         label {
             display: block;
             margin-bottom: 8px;
@@ -304,7 +346,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
             color: #2c3e50;
         }
         
-        input, select {
+        input, select, textarea {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
@@ -371,8 +413,8 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
         
         .products-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
             margin: 30px 0;
         }
         
@@ -380,6 +422,34 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
             border: 1px solid #e0e0e0;
             padding: 20px;
             border-radius: 10px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .product-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+        }
+        
+        .default-image {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2em;
+            border-radius: 8px;
+            margin-bottom: 15px;
         }
         
         table {
@@ -402,6 +472,18 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
             text-align: center;
             margin-top: 30px;
             color: white;
+        }
+        
+        .image-preview {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            margin-top: 10px;
+        }
+        a {
+            text-decoration: "none";
         }
     </style>
 </head>
@@ -523,7 +605,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     else:
                         // DASHBOARD
                         if (isAdmin()):
-                            // Get statistics - FIXED QUERIES
+                            // Get statistics
                             $total_customers_result = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='customer'");
                             $total_customers = $total_customers_result ? $total_customers_result->fetch_assoc() : ['total' => 0];
                             
@@ -704,108 +786,63 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
             <?php
                     break;
                     
-                case 'edit_product':
-                    if (!isAdmin()) {
-                        echo '<div class="alert error">⛔ Admin only</div>';
-                        break;
-                    }
-                    
-                    $product_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-                    
-                    // Get product data
-                    $product_result = $conn->query("SELECT * FROM products WHERE id = $product_id");
-                    if (!$product_result || $product_result->num_rows == 0) {
-                        echo '<div class="alert error">❌ Product not found</div>';
-                        break;
-                    }
-                    $product = $product_result->fetch_assoc();
-                    
-                    // Handle update
-                    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_product'])) {
-                        $name = sanitize($_POST['name']);
-                        $price = floatval($_POST['price']);
-                        $quantity = intval($_POST['quantity']);
-                        
-                        $sql = "UPDATE products SET 
-                                name = '$name', 
-                                price = $price, 
-                                quantity = $quantity 
-                                WHERE id = $product_id";
-                        
-                        if ($conn->query($sql)) {
-                            echo '<div class="alert success">✅ Product updated successfully!</div>';
-                            // Refresh product data
-                            $product = $conn->query("SELECT * FROM products WHERE id = $product_id")->fetch_assoc();
-                        } else {
-                            echo '<div class="alert error">❌ Error: ' . $conn->error . '</div>';
-                        }
-                    }
-                    
-                    // Handle delete
-                    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_product'])) {
-                        $sql = "DELETE FROM products WHERE id = $product_id";
-                        if ($conn->query($sql)) {
-                            echo '<div class="alert success">✅ Product deleted successfully!</div>';
-                            echo '<script>setTimeout(() => window.location.href = "?page=products", 2000);</script>';
-                            break;
-                        } else {
-                            echo '<div class="alert error">❌ Error: ' . $conn->error . '</div>';
-                        }
-                    }
-                    ?>
-                    
-                    <h2>✏️ Edit Product</h2>
-                    
-                    <form method="POST" style="max-width: 500px;">
-                        <div class="form-group">
-                            <label>Product Name</label>
-                            <input type="text" name="name" value="<?php echo htmlspecialchars($product['name']); ?>" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Price (Tsh)</label>
-                            <input type="number" name="price" step="0.01" value="<?php echo $product['price']; ?>" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Quantity</label>
-                            <input type="number" name="quantity" value="<?php echo $product['quantity']; ?>" required>
-                        </div>
-                        
-                        <div style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button type="submit" name="update_product" class="btn btn-success">Update Product</button>
-                            <button type="submit" name="delete_product" class="btn btn-danger" 
-                                    onclick="return confirm('Delete this product permanently?')">Delete Product</button>
-                            <a href="?page=products" class="btn btn-secondary">Cancel</a>
-                        </div>
-                    </form>
-                    
-                    <div style="margin-top: 30px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-                        <h4>📊 Product Info</h4>
-                        <p><strong>Product ID:</strong> <?php echo $product['id']; ?></p>
-                        <p><strong>Created:</strong> <?php echo $product['created_at']; ?></p>
-                    </div>
-                    <?php
-                    break;
-                    
                 case 'products':
-                    // Handle product addition
+                    // Handle product addition with image
                     if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_product']) && isAdmin()) {
                         $name = sanitize($_POST['name']);
                         $price = floatval($_POST['price']);
                         $quantity = intval($_POST['quantity']);
                         
-                        $sql = "INSERT INTO products (name, price, quantity) 
-                                VALUES ('$name', $price, $quantity)";
+                        $image_path = null;
+                        
+                        // Handle image upload
+                        if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] == UPLOAD_ERR_OK) {
+                            $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+                            $file_name = $_FILES['product_image']['name'];
+                            $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+                            $file_size = $_FILES['product_image']['size'];
+                            
+                            // Validate file
+                            if (in_array($file_ext, $allowed_extensions)) {
+                                if ($file_size <= 2097152) { // 2MB max
+                                    // Generate unique filename
+                                    $new_filename = uniqid() . '_' . time() . '.' . $file_ext;
+                                    $upload_path = 'uploads/' . $new_filename;
+                                    
+                                    if (move_uploaded_file($_FILES['product_image']['tmp_name'], $upload_path)) {
+                                        $image_path = $upload_path;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if ($image_path) {
+                            $sql = "INSERT INTO products (name, price, quantity, image) 
+                                    VALUES ('$name', $price, $quantity, '$image_path')";
+                        } else {
+                            $sql = "INSERT INTO products (name, price, quantity) 
+                                    VALUES ('$name', $price, $quantity)";
+                        }
                         
                         if ($conn->query($sql)) {
-                            echo '<div class="alert success">Product added successfully!</div>';
+                            $product_success = "Product added successfully!";
                         }
                     }
                     
-                    // Handle delete product (from products page)
+                    // Handle delete product
                     if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_product']) && isAdmin()) {
                         $product_id = intval($_POST['product_id']);
+                        
+                        // First get product info to delete image file
+                        $product_result = $conn->query("SELECT image FROM products WHERE id=$product_id");
+                        if ($product_result->num_rows > 0) {
+                            $product = $product_result->fetch_assoc();
+                            // Delete image file if exists
+                            if ($product['image'] && file_exists($product['image'])) {
+                                unlink($product['image']);
+                            }
+                        }
+                        
                         $sql = "DELETE FROM products WHERE id = $product_id";
                         
                         if ($conn->query($sql)) {
@@ -841,23 +878,32 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     <?php if (isAdmin()): ?>
                         <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 30px;">
                             <h3>Add New Product</h3>
-                            <form method="POST">
+                            <form method="POST" enctype="multipart/form-data">
                                 <input type="hidden" name="add_product" value="1">
                                 
-                                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
                                     <div class="form-group">
-                                        <label>Product Name</label>
+                                        <label>Product Name *</label>
                                         <input type="text" name="name" required>
                                     </div>
                                     
                                     <div class="form-group">
-                                        <label>Price (Tsh)</label>
+                                        <label>Price (Tsh) *</label>
                                         <input type="number" name="price" step="0.01" required>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
+                                    <div class="form-group">
+                                        <label>Quantity *</label>
+                                        <input type="number" name="quantity" required>
                                     </div>
                                     
                                     <div class="form-group">
-                                        <label>Quantity</label>
-                                        <input type="number" name="quantity" required>
+                                        <label>Product Image</label>
+                                        <input type="file" name="product_image" accept="image/*" id="productImageInput">
+                                        <small style="color: #666;">Upload JPG, PNG or GIF (max 2MB)</small>
+                                        <div id="imagePreview"></div>
                                     </div>
                                 </div>
                                 
@@ -873,6 +919,19 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                             while($row = $result->fetch_assoc()):
                         ?>
                             <div class="product-card">
+                                <!-- Product Image Display -->
+                                <div style="text-align: center;">
+                                    <?php if (!empty($row['image']) && file_exists($row['image'])): ?>
+                                        <img src="<?php echo $row['image']; ?>" 
+                                             alt="<?php echo htmlspecialchars($row['name']); ?>"
+                                             class="product-image">
+                                    <?php else: ?>
+                                        <div class="default-image">
+                                            📦
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                                
                                 <h3><?php echo htmlspecialchars($row['name']); ?></h3>
                                 <div style="font-size: 1.5em; color: #28a745; margin: 10px 0;">
                                     Tsh<?php echo number_format($row['price'], 2); ?>
@@ -925,6 +984,114 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
             <?php
                     break;
                     
+                case 'edit_product':
+                    if (!isAdmin()) {
+                        echo '<div class="alert error">⛔ Admin only</div>';
+                        break;
+                    }
+                    
+                    $product_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+                    
+                    // Get product data
+                    $product_result = $conn->query("SELECT * FROM products WHERE id = $product_id");
+                    if (!$product_result || $product_result->num_rows == 0) {
+                        echo '<div class="alert error">❌ Product not found</div>';
+                        break;
+                    }
+                    $product = $product_result->fetch_assoc();
+                    
+                    // Handle update
+                    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_product'])) {
+                        $name = sanitize($_POST['name']);
+                        $price = floatval($_POST['price']);
+                        $quantity = intval($_POST['quantity']);
+                        
+                        $sql = "UPDATE products SET 
+                                name = '$name', 
+                                price = $price, 
+                                quantity = $quantity 
+                                WHERE id = $product_id";
+                        
+                        if ($conn->query($sql)) {
+                            echo '<div class="alert success">✅ Product updated successfully!</div>';
+                            // Refresh product data
+                            $product = $conn->query("SELECT * FROM products WHERE id = $product_id")->fetch_assoc();
+                        } else {
+                            echo '<div class="alert error">❌ Error: ' . $conn->error . '</div>';
+                        }
+                    }
+                    
+                    // Handle delete
+                    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_product'])) {
+                        // Delete image file if exists
+                        if ($product['image'] && file_exists($product['image'])) {
+                            unlink($product['image']);
+                        }
+                        
+                        $sql = "DELETE FROM products WHERE id = $product_id";
+                        if ($conn->query($sql)) {
+                            echo '<div class="alert success">✅ Product deleted successfully!</div>';
+                            echo '<script>setTimeout(() => window.location.href = "?page=products", 2000);</script>';
+                            break;
+                        } else {
+                            echo '<div class="alert error">❌ Error: ' . $conn->error . '</div>';
+                        }
+                    }
+                    ?>
+                    
+                    <h2>✏️ Edit Product</h2>
+                    
+                    <!-- Display current product image -->
+                    <div style="margin-bottom: 20px; text-align: center;">
+                        <?php if (!empty($product['image']) && file_exists($product['image'])): ?>
+                            <img src="<?php echo $product['image']; ?>" 
+                                 alt="<?php echo htmlspecialchars($product['name']); ?>"
+                                 style="max-width: 300px; max-height: 200px; object-fit: contain; border-radius: 8px;">
+                            <p><small>Current Image</small></p>
+                        <?php else: ?>
+                            <div style="width: 300px; height: 200px; background: #f0f0f0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: #999;">
+                                No Image
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <form method="POST" style="max-width: 500px;">
+                        <div class="form-group">
+                            <label>Product Name</label>
+                            <input type="text" name="name" value="<?php echo htmlspecialchars($product['name']); ?>" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Price (Tsh)</label>
+                            <input type="number" name="price" step="0.01" value="<?php echo $product['price']; ?>" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Quantity</label>
+                            <input type="number" name="quantity" value="<?php echo $product['quantity']; ?>" required>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
+                            <button type="submit" name="update_product" class="btn btn-success">Update Product</button>
+                            <button type="submit" name="delete_product" class="btn btn-danger" 
+                                    onclick="return confirm('Delete this product permanently?')">Delete Product</button>
+                            <a href="?page=products" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                    
+                    <div style="margin-top: 30px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                        <h4>📊 Product Info</h4>
+                        <p><strong>Product ID:</strong> <?php echo $product['id']; ?></p>
+                        <?php if (!empty($product['image'])): ?>
+                            <p><strong>Image Path:</strong> <?php echo $product['image']; ?></p>
+                        <?php endif; ?>
+                        <?php if (isset($product['created_at'])): ?>
+                            <p><strong>Created:</strong> <?php echo $product['created_at']; ?></p>
+                        <?php endif; ?>
+                    </div>
+                    <?php
+                    break;
+                    
                 case 'myorders':
                     if (!isLoggedIn() || !isCustomer()) {
                         echo '<div class="alert error">Please login as customer to view orders</div>';
@@ -933,7 +1100,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     
                     $customer_id = $_SESSION['user_id'];
                     $orders = $conn->query("
-                        SELECT o.*, p.name as product_name 
+                        SELECT o.*, p.name as product_name, p.image as product_image 
                         FROM orders o 
                         JOIN products p ON o.product_id = p.id 
                         WHERE o.customer_id = $customer_id 
@@ -943,32 +1110,42 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     <h2>📦 My Orders</h2>
                     
                     <?php if ($orders && $orders->num_rows > 0): ?>
-                        <table>
-                            <tr>
-                                <th>Order ID</th>
-                                <th>Product</th>
-                                <th>Quantity</th>
-                                <th>Total</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                            </tr>
+                        <div class="products-grid">
                             <?php while($row = $orders->fetch_assoc()): ?>
-                            <tr>
-                                <td>#<?php echo $row['id']; ?></td>
-                                <td><?php echo htmlspecialchars($row['product_name']); ?></td>
-                                <td><?php echo $row['quantity']; ?></td>
-                                <td>$<?php echo number_format($row['total_price'], 2); ?></td>
-                                <td><?php echo $row['order_date']; ?></td>
-                                <td>
+                            <div class="product-card">
+                                <!-- Product Image in Order -->
+                                <div style="text-align: center;">
+                                    <?php if (!empty($row['product_image']) && file_exists($row['product_image'])): ?>
+                                        <img src="<?php echo $row['product_image']; ?>" 
+                                             alt="<?php echo htmlspecialchars($row['product_name']); ?>"
+                                             class="product-image">
+                                    <?php else: ?>
+                                        <div class="default-image">
+                                            📦
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <h3><?php echo htmlspecialchars($row['product_name']); ?></h3>
+                                <div style="color: #28a745; margin: 10px 0;">
+                                    Quantity: <?php echo $row['quantity']; ?>
+                                </div>
+                                <div style="font-size: 1.2em; color: #333; margin: 10px 0;">
+                                    Total: Tsh<?php echo number_format($row['total_price'], 2); ?>
+                                </div>
+                                <div style="color: #666; margin: 10px 0;">
+                                    Date: <?php echo $row['order_date']; ?>
+                                </div>
+                                <div style="margin-top: 10px;">
                                     <?php 
                                     if ($row['status'] == 'pending') echo '<span style="background: orange; color: white; padding: 5px 10px; border-radius: 5px;">Pending</span>';
                                     elseif ($row['status'] == 'completed') echo '<span style="background: green; color: white; padding: 5px 10px; border-radius: 5px;">Completed</span>';
                                     else echo '<span style="background: red; color: white; padding: 5px 10px; border-radius: 5px;">Cancelled</span>';
                                     ?>
-                                </td>
-                            </tr>
+                                </div>
+                            </div>
                             <?php endwhile; ?>
-                        </table>
+                        </div>
                     <?php else: ?>
                         <p style="color: #666; text-align: center; padding: 40px;">
                             You have no orders yet. <a href="?page=products">Start shopping!</a>
@@ -1021,7 +1198,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     }
                     
                     $orders = $conn->query("
-                        SELECT o.*, u.username, p.name as product_name 
+                        SELECT o.*, u.username, p.name as product_name, p.image as product_image 
                         FROM orders o 
                         JOIN users u ON o.customer_id = u.id 
                         JOIN products p ON o.product_id = p.id 
@@ -1036,6 +1213,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                                 <th>Order ID</th>
                                 <th>Customer</th>
                                 <th>Product</th>
+                                <th>Image</th>
                                 <th>Quantity</th>
                                 <th>Total</th>
                                 <th>Date</th>
@@ -1046,6 +1224,17 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                                 <td>#<?php echo $row['id']; ?></td>
                                 <td><?php echo htmlspecialchars($row['username']); ?></td>
                                 <td><?php echo htmlspecialchars($row['product_name']); ?></td>
+                                <td>
+                                    <?php if (!empty($row['product_image']) && file_exists($row['product_image'])): ?>
+                                        <img src="<?php echo $row['product_image']; ?>" 
+                                             alt="<?php echo htmlspecialchars($row['product_name']); ?>"
+                                             style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">
+                                    <?php else: ?>
+                                        <div style="width: 50px; height: 50px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 5px; color: #999;">
+                                            📦
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?php echo $row['quantity']; ?></td>
                                 <td>Tsh<?php echo number_format($row['total_price'], 2); ?></td>
                                 <td><?php echo $row['order_date']; ?></td>
@@ -1102,6 +1291,28 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                 }
             });
         });
+        
+        // Image preview for product upload
+        const imageInput = document.getElementById('productImageInput');
+        if (imageInput) {
+            const imagePreview = document.getElementById('imagePreview');
+            
+            imageInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.className = 'image-preview';
+                        imagePreview.innerHTML = '';
+                        imagePreview.appendChild(img);
+                    }
+                    
+                    reader.readAsDataURL(this.files[0]);
+                }
+            });
+        }
     });
     </script>
 </body>
