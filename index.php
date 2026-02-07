@@ -986,7 +986,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     
                 case 'edit_product':
                     if (!isAdmin()) {
-                        echo '<div class="alert error">⛔ Admin only</div>';
+                        echo '<div class="alert error">Admin only</div>';
                         break;
                     }
                     
@@ -995,7 +995,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     // Get product data
                     $product_result = $conn->query("SELECT * FROM products WHERE id = $product_id");
                     if (!$product_result || $product_result->num_rows == 0) {
-                        echo '<div class="alert error">❌ Product not found</div>';
+                        echo '<div class="alert error">Product not found</div>';
                         break;
                     }
                     $product = $product_result->fetch_assoc();
@@ -1013,11 +1013,11 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                                 WHERE id = $product_id";
                         
                         if ($conn->query($sql)) {
-                            echo '<div class="alert success">✅ Product updated successfully!</div>';
+                            echo '<div class="alert success">Product updated successfully!</div>';
                             // Refresh product data
                             $product = $conn->query("SELECT * FROM products WHERE id = $product_id")->fetch_assoc();
                         } else {
-                            echo '<div class="alert error">❌ Error: ' . $conn->error . '</div>';
+                            echo '<div class="alert error">Error: ' . $conn->error . '</div>';
                         }
                     }
                     
@@ -1030,11 +1030,11 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                         
                         $sql = "DELETE FROM products WHERE id = $product_id";
                         if ($conn->query($sql)) {
-                            echo '<div class="alert success">✅ Product deleted successfully!</div>';
+                            echo '<div class="alert success">Product deleted successfully!</div>';
                             echo '<script>setTimeout(() => window.location.href = "?page=products", 2000);</script>';
                             break;
                         } else {
-                            echo '<div class="alert error">❌ Error: ' . $conn->error . '</div>';
+                            echo '<div class="alert error">Error: ' . $conn->error . '</div>';
                         }
                     }
                     ?>
