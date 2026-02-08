@@ -6,11 +6,8 @@ $host = "localhost";
 $user = "root";
 $password = "";
 $database = "sme_system";
-
-// Create connection
 $conn = new mysqli($host, $user, $password, $database);
 
-// Check connection
 if ($conn->connect_error) {
     die("
         <div style='padding: 20px; background: #ffcccc; border-radius: 5px;'>
@@ -35,7 +32,6 @@ function loginUser($username, $password) {
         $user = $result->fetch_assoc();
 
         if (password_verify($password, $user['password'])) {
-            // Set session variables
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
@@ -66,7 +62,6 @@ function sanitize($data) {
     return $conn->real_escape_string($data);
 }
 
-// Check if tables exist
 $result = $conn->query("SHOW TABLES LIKE 'users'");
 if ($result->num_rows == 0) {
     die("
@@ -78,13 +73,11 @@ if ($result->num_rows == 0) {
     ");
 }
 
-// Check if products table has image column, if not add it
 $check_column = $conn->query("SHOW COLUMNS FROM products LIKE 'image'");
 if ($check_column->num_rows == 0) {
     $conn->query("ALTER TABLE products ADD COLUMN image VARCHAR(255) DEFAULT NULL");
 }
 
-// Create uploads directory if it doesn't exist
 if (!is_dir('uploads')) {
     mkdir('uploads', 0777, true);
 }
@@ -108,7 +101,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
     
-    // Handle registration
     if (isset($_POST['register'])) {
         $username = sanitize($_POST['username']);
         $password = $_POST['password'];
@@ -116,7 +108,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $email = sanitize($_POST['email']);
         $phone = sanitize($_POST['phone']);
         
-        // Check if username exists
         $check = $conn->query("SELECT id FROM users WHERE username='$username'");
         if ($check->num_rows > 0) {
             $register_error = "Username already exists!";
@@ -134,7 +125,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
     
-    // Handle product addition (admin only) - WITH IMAGE UPLOAD
     if (isset($_POST['add_product']) && isAdmin()) {
         $name = sanitize($_POST['name']);
         $price = floatval($_POST['price']);
@@ -142,17 +132,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         $image_path = null;
         
-        // Handle image upload
         if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] == UPLOAD_ERR_OK) {
             $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
             $file_name = $_FILES['product_image']['name'];
             $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
             $file_size = $_FILES['product_image']['size'];
             
-            // Validate file
             if (in_array($file_ext, $allowed_extensions)) {
-                if ($file_size <= 2097152) { // 2MB max
-                    // Generate unique filename
+                if ($file_size <= 2097152)
+                     { 
                     $new_filename = uniqid() . '_' . time() . '.' . $file_ext;
                     $upload_path = 'uploads/' . $new_filename;
                     
@@ -176,13 +164,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
     
-    // Handle order placement (customer only)
     if (isset($_POST['place_order']) && isCustomer()) {
         $product_id = intval($_POST['product_id']);
         $quantity = intval($_POST['quantity']);
         $customer_id = $_SESSION['user_id'];
         
-        // Get product price
         $product_result = $conn->query("SELECT price FROM products WHERE id=$product_id");
         if ($product_result->num_rows > 0) {
             $product = $product_result->fetch_assoc();
@@ -530,17 +516,14 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
             </div>
         </div>
         
-        <!-- MAIN CONTENT -->
+        
         <div class="content">
             <?php
-            // Display messages
             if (!empty($login_error)) echo '<div class="alert error">' . $login_error . '</div>';
             if (!empty($register_error)) echo '<div class="alert error">' . $register_error . '</div>';
             if (!empty($register_success)) echo '<div class="alert success">' . $register_success . '</div>';
             if (!empty($product_success)) echo '<div class="alert success">' . $product_success . '</div>';
             if (!empty($order_success)) echo '<div class="alert success">' . $order_success . '</div>';
-            
-            // ==================== PAGE ROUTING ====================
             if ($page == 'logout') {
                 session_destroy();
                 echo '<script>alert("Logged out successfully!"); window.location.href = "?page=home";</script>';
@@ -555,7 +538,6 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                         <p class="alert info">Please login to access the system</p>
                         
                         <div class="login-container">
-                            <!-- CUSTOMER LOGIN -->
                             <div class="login-box">
                                 <h3>👤 Customer Login</h3>
                                 <form method="POST">
@@ -580,7 +562,6 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                                 </p>
                             </div>
                             
-                            <!-- ADMIN LOGIN -->
                             <div class="login-box">
                                 <h3>Admin Login</h3>
                                 <form method="POST">
@@ -603,9 +584,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                         </div>
             <?php
                     else:
-                        // DASHBOARD
                         if (isAdmin()):
-                            // Get statistics
                             $total_customers_result = $conn->query("SELECT COUNT(*) as total FROM users WHERE role='customer'");
                             $total_customers = $total_customers_result ? $total_customers_result->fetch_assoc() : ['total' => 0];
                             
@@ -787,25 +766,21 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     break;
                     
                 case 'products':
-                    // Handle product addition with image
                     if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_product']) && isAdmin()) {
                         $name = sanitize($_POST['name']);
                         $price = floatval($_POST['price']);
                         $quantity = intval($_POST['quantity']);
                         
                         $image_path = null;
-                        
-                        // Handle image upload
                         if (isset($_FILES['product_image']) && $_FILES['product_image']['error'] == UPLOAD_ERR_OK) {
                             $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
                             $file_name = $_FILES['product_image']['name'];
                             $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
                             $file_size = $_FILES['product_image']['size'];
                             
-                            // Validate file
+                    
                             if (in_array($file_ext, $allowed_extensions)) {
-                                if ($file_size <= 2097152) { // 2MB max
-                                    // Generate unique filename
+                                if ($file_size <= 2097152) { 
                                     $new_filename = uniqid() . '_' . time() . '.' . $file_ext;
                                     $upload_path = 'uploads/' . $new_filename;
                                     
@@ -829,15 +804,11 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                         }
                     }
                     
-                    // Handle delete product
                     if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_product']) && isAdmin()) {
                         $product_id = intval($_POST['product_id']);
-                        
-                        // First get product info to delete image file
                         $product_result = $conn->query("SELECT image FROM products WHERE id=$product_id");
                         if ($product_result->num_rows > 0) {
                             $product = $product_result->fetch_assoc();
-                            // Delete image file if exists
                             if ($product['image'] && file_exists($product['image'])) {
                                 unlink($product['image']);
                             }
@@ -1263,16 +1234,16 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
             ?>
         </div>
         
-        <!-- FOOTER -->
+    
         <div class="footer">
             <p>SME Management System &copy; <?php echo date('Y'); ?></p>
         </div>
     </div>
     
     <script>
-    // Simple JavaScript
+    
     document.addEventListener('DOMContentLoaded', function() {
-        // Auto-hide alerts after 5 seconds
+        
         setTimeout(function() {
             const alerts = document.querySelectorAll('.alert');
             alerts.forEach(alert => {
@@ -1282,7 +1253,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
             });
         }, 5000);
         
-        // Confirm logout
+        
         const logoutLinks = document.querySelectorAll('a[href*="logout"]');
         logoutLinks.forEach(link => {
             link.addEventListener('click', function(e) {
@@ -1292,7 +1263,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
             });
         });
         
-        // Image preview for product upload
+        
         const imageInput = document.getElementById('productImageInput');
         if (imageInput) {
             const imagePreview = document.getElementById('imagePreview');
