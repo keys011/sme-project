@@ -469,7 +469,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
             margin-top: 10px;
         }
         a {
-            text-decoration: "none";
+            text-decoration: none;
         }
     </style>
 </head>
