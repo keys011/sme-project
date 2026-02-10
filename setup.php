@@ -52,6 +52,25 @@ if (! $conn->query($sqlProducts)) {
     die("Failed to create products table: " . $conn->error);
 }
 
+// Create categories table
+$sqlCategories = "CREATE TABLE IF NOT EXISTS categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('active','inactive') DEFAULT 'active'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+
+if (! $conn->query($sqlCategories)) {
+    die("Failed to create categories table: " . $conn->error);
+}
+
+// Update products table to include category relationship
+$sqlAlterProducts = "ALTER TABLE products ADD COLUMN IF NOT EXISTS category_id INT DEFAULT NULL AFTER image";
+$conn->query($sqlAlterProducts);
+$sqlAlterForeignKey = "ALTER TABLE products ADD CONSTRAINT IF NOT EXISTS fk_products_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL";
+$conn->query($sqlAlterForeignKey);
+
 // Create orders table
 $sqlOrders = "CREATE TABLE IF NOT EXISTS orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -61,12 +80,33 @@ $sqlOrders = "CREATE TABLE IF NOT EXISTS orders (
     total_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     order_date DATE NOT NULL,
     status ENUM('pending','completed','cancelled') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 
 if (! $conn->query($sqlOrders)) {
     die("Failed to create orders table: " . $conn->error);
+}
+
+// Create payments table
+$sqlPayments = "CREATE TABLE IF NOT EXISTS payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    customer_id INT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    payment_method ENUM('cash','card','bank_transfer','online') DEFAULT 'cash',
+    payment_status ENUM('pending','completed','failed','refunded') DEFAULT 'pending',
+    transaction_id VARCHAR(100) DEFAULT NULL,
+    payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_transaction (transaction_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+
+if (! $conn->query($sqlPayments)) {
+    die("Failed to create payments table: " . $conn->error);
 }
 
 // Ensure uploads directory exists
