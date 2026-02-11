@@ -822,14 +822,12 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                             echo '<div class="alert error">Error: ' . $conn->error . '</div>';
                         }
                     }
-                    
-                    // Handle order placement
+
                     if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['place_order']) && isCustomer()) {
                         $product_id = intval($_POST['product_id']);
                         $quantity = intval($_POST['quantity']);
                         $customer_id = $_SESSION['user_id'];
                         
-                        // Get product price
                         $product_result = $conn->query("SELECT price FROM products WHERE id=$product_id");
                         if ($product_result && $product_result->num_rows > 0) {
                             $product = $product_result->fetch_assoc();
@@ -890,7 +888,6 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                             while($row = $result->fetch_assoc()):
                         ?>
                             <div class="product-card">
-                                <!-- Product Image Display -->
                                 <div style="text-align: center;">
                                     <?php if (!empty($row['image']) && file_exists($row['image'])): ?>
                                         <img src="<?php echo $row['image']; ?>" 
@@ -962,16 +959,14 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     }
                     
                     $product_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-                    
-                    // Get product data
+
                     $product_result = $conn->query("SELECT * FROM products WHERE id = $product_id");
                     if (!$product_result || $product_result->num_rows == 0) {
                         echo '<div class="alert error">Product not found</div>';
                         break;
                     }
                     $product = $product_result->fetch_assoc();
-                    
-                    // Handle update
+
                     if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_product'])) {
                         $name = sanitize($_POST['name']);
                         $price = floatval($_POST['price']);
@@ -985,16 +980,13 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                         
                         if ($conn->query($sql)) {
                             echo '<div class="alert success">Product updated successfully!</div>';
-                            // Refresh product data
                             $product = $conn->query("SELECT * FROM products WHERE id = $product_id")->fetch_assoc();
                         } else {
                             echo '<div class="alert error">Error: ' . $conn->error . '</div>';
                         }
                     }
                     
-                    // Handle delete
                     if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_product'])) {
-                        // Delete image file if exists
                         if ($product['image'] && file_exists($product['image'])) {
                             unlink($product['image']);
                         }
@@ -1011,8 +1003,6 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     ?>
                     
                     <h2>✏️ Edit Product</h2>
-                    
-                    <!-- Display current product image -->
                     <div style="margin-bottom: 20px; text-align: center;">
                         <?php if (!empty($product['image']) && file_exists($product['image'])): ?>
                             <img src="<?php echo $product['image']; ?>" 
