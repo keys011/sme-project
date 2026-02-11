@@ -1,6 +1,6 @@
 # 🗄️ SME System Database Schema & Relationships
 
-## ✅ Database Successfully Created
+## Database Successfully Created
 - **Database Name:** `sme_system`
 - **Total Tables:** 5
 - **Foreign Key Relationships:** 5
@@ -111,7 +111,7 @@ CREATE TABLE payments (
 
 ---
 
-## 🔗 Relationship Diagram (Text Format)
+## Relationship Diagram (Text Format)
 
 ```
 ┌─────────────────┐
@@ -145,7 +145,7 @@ CREATE TABLE payments (
 
 ---
 
-## 🎯 Relationships Summary
+## Relationships Summary
 
 | From Table | To Table | Type | Foreign Key | Description |
 |-----------|---------|------|------------|-------------|
@@ -157,12 +157,12 @@ CREATE TABLE payments (
 
 ---
 
-## 💾 Referential Integrity Features
+## Referential Integrity Features
 
-✅ **ON DELETE CASCADE:** When a user or product is deleted, associated orders are automatically deleted  
-✅ **ON DELETE SET NULL:** When a category is deleted, products retain their data but category reference is cleared  
-✅ **UNIQUE Constraints:** Prevents duplicate usernames, emails, and transaction IDs  
-✅ **ACID Compliance:** InnoDB engine ensures data consistency
+**ON DELETE CASCADE:** When a user or product is deleted, associated orders are automatically deleted  
+**ON DELETE SET NULL:** When a category is deleted, products retain their data but category reference is cleared  
+**UNIQUE Constraints:** Prevents duplicate usernames, emails, and transaction IDs  
+**ACID Compliance:** InnoDB engine ensures data consistency
 
 ---
 
@@ -223,4 +223,4 @@ Email: admin@example.com
 ---
 
 **Created:** February 10, 2026  
-**Status:** ✅ Active and Ready to Use
+**Status:** Active and Ready to Use
