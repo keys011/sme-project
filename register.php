@@ -5,7 +5,6 @@ $pageTitle = "Register";
 $hideHeader = true;
 $hideFooter = true;
 
-// Redirect if already logged in
 if (isLoggedIn()) {
     redirect('/sme-pro-manager/modules/dashboard/');
 }
@@ -13,9 +12,7 @@ if (isLoggedIn()) {
 $errors = [];
 $success = false;
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Sanitize input
     $full_name = sanitize($_POST['full_name'] ?? '');
     $username = sanitize($_POST['username'] ?? '');
     $email = sanitize($_POST['email'] ?? '');
@@ -23,9 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $confirm_password = $_POST['confirm_password'] ?? '';
     $phone = sanitize($_POST['phone'] ?? '');
     $address = sanitize($_POST['address'] ?? '');
-    $role = 'customer'; // Default role for self-registration
-    
-    // Validation
+    $role = 'customer'; 
     if (empty($full_name)) {
         $errors[] = "Full name is required";
     }
@@ -56,11 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Passwords do not match";
     }
     
-    // Check if username or email already exists
     if (empty($errors)) {
         $conn = getDBConnection();
         
-        // Check username
         $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
         $stmt->bind_param("s", $username);
         $stmt->execute();
@@ -68,7 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = "Username already exists";
         }
         
-        // Check email
         $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->bind_param("s", $email);
         $stmt->execute();
@@ -77,7 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
-    // If no errors, create user
     if (empty($errors)) {
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
         
@@ -89,16 +80,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = true;
             logActivity('registration', "New user registered: $username");
             
-            // Auto-login after registration
             $user_id = $stmt->insert_id;
             $_SESSION['user_id'] = $user_id;
             $_SESSION['username'] = $username;
             $_SESSION['role'] = $role;
             
-            // Redirect based on role
             $redirect_url = '/sme-pro-manager/modules/dashboard/';
             
-            // Show success message and redirect
             echo "<script>
                 setTimeout(function() {
                     window.location.href = '$redirect_url';
@@ -244,7 +232,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Real-time password strength indicator
     const passwordInput = document.getElementById('password');
     if (passwordInput) {
         passwordInput.addEventListener('input', function() {
