@@ -6,24 +6,14 @@ $host = 'localhost';
 $user = 'root';
 $password = '';
 $database = 'sme_system';
-
-// Connect to MySQL server without selecting database initially
 $conn = new mysqli($host, $user, $password);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
-
-// Create database if it doesn't exist
 if (!$conn->query("CREATE DATABASE IF NOT EXISTS `$database` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci")) {
     die("Failed to create database: " . $conn->error);
 }
-
-// Select the database
 $conn->select_db($database);
-
-// ============ CREATE TABLES ============
-
-// 1. USERS TABLE
 $sqlUsers = "CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(100) NOT NULL UNIQUE,
@@ -45,8 +35,6 @@ if (!$conn->query($sqlUsers)) {
 } else {
     $error_users = "";
 }
-
-// 2. CATEGORIES TABLE
 $sqlCategories = "CREATE TABLE IF NOT EXISTS categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
@@ -62,7 +50,6 @@ if (!$conn->query($sqlCategories)) {
     $error_categories = "";
 }
 
-// 3. PRODUCTS TABLE
 $sqlProducts = "CREATE TABLE IF NOT EXISTS products (
     id INT AUTO_INCREMENT PRIMARY KEY,
     category_id INT DEFAULT NULL,
@@ -84,7 +71,6 @@ if (!$conn->query($sqlProducts)) {
     $error_products = "";
 }
 
-// 4. ORDERS TABLE
 $sqlOrders = "CREATE TABLE IF NOT EXISTS orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
     customer_id INT NOT NULL,
@@ -109,7 +95,6 @@ if (!$conn->query($sqlOrders)) {
     $error_orders = "";
 }
 
-// 5. PAYMENTS TABLE
 $sqlPayments = "CREATE TABLE IF NOT EXISTS payments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
@@ -136,7 +121,6 @@ if (!$conn->query($sqlPayments)) {
     $error_payments = "";
 }
 
-// Insert default admin if not exists
 $adminUser = 'admin';
 $adminPass = 'admin123';
 $check = $conn->prepare("SELECT id FROM users WHERE username = ?");
