@@ -5,14 +5,12 @@ $pageTitle = "Login";
 $hideHeader = true;
 $hideFooter = true;
 
-// Redirect if already logged in
 if (isLoggedIn()) {
     redirect('/sme-pro-manager/modules/dashboard/');
 }
 
 $errors = [];
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = sanitize($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -23,7 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $conn = getDBConnection();
         
-        // Try to find user by username or email
         $stmt = $conn->prepare("SELECT id, username, email, password, role, full_name, status FROM users WHERE username = ? OR email = ?");
         $stmt->bind_param("ss", $username, $username);
         $stmt->execute();
@@ -32,33 +29,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($result->num_rows === 1) {
             $user = $result->fetch_assoc();
             
-            // Check if account is active
             if ($user['status'] !== 'active') {
                 $errors[] = "Your account is " . $user['status'] . ". Please contact administrator.";
             } else {
-                // Verify password
                 if (password_verify($password, $user['password'])) {
-                    // Set session variables
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['username'] = $user['username'];
                     $_SESSION['role'] = $user['role'];
                     $_SESSION['full_name'] = $user['full_name'];
                     
-                    // Log the login activity
                     logActivity('login', "User logged in");
                     
-                    // Set remember me cookie if requested (30 days)
                     if ($remember) {
                         $token = bin2hex(random_bytes(32));
                         setcookie('remember_token', $token, time() + (30 * 24 * 60 * 60), '/');
                         
-                        // Store token in database (you'll need to add a remember_token field to users table)
                         $stmt = $conn->prepare("UPDATE users SET remember_token = ? WHERE id = ?");
                         $stmt->bind_param("si", $token, $user['id']);
                         $stmt->execute();
                     }
                     
-                    // Redirect based on role
                     $redirect_url = '/sme-pro-manager/modules/dashboard/';
                     redirect($redirect_url);
                 } else {
