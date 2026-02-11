@@ -9,7 +9,7 @@
 
 ---
 
-## 📋 Table Structure
+## Table Structure
 
 ### 1. **USERS** Table (Customers & Admins)
 ```sql
@@ -166,7 +166,7 @@ CREATE TABLE payments (
 
 ---
 
-## 🚀 Default Admin Account
+## Default Admin Account
 
 After setup, the following default admin account is created automatically:
 
@@ -179,7 +179,7 @@ Email: admin@example.com
 
 ---
 
-## 📊 Key Features
+## Key Features
 
 1. **Multi-tier relationships:** All tables are interconnected
 2. **Referential Integrity:** Foreign keys ensure data consistency
@@ -191,7 +191,7 @@ Email: admin@example.com
 
 ---
 
-## 🔍 Example Data Flow
+##  Example Data Flow
 
 1. **Customer Registration** → User created in `USERS` table
 2. **Add Product** → Product added to `PRODUCTS` table with category reference
@@ -201,14 +201,14 @@ Email: admin@example.com
 
 ---
 
-## 📁 Database Files
+##  Database Files
 
 - **Schema Setup:** `database_schema.php` - Creates all tables and relationships
 - **Auto Generated:** `setup.php` - Original setup (updated with new schema)
 
 ---
 
-## 🌐 Access Your Database
+## Access Your Database
 
 ### Via PHPMyAdmin
 1. Go to `http://localhost/phpmyadmin`
